@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 mokume-metal
+# SPDX-License-Identifier: MIT
+
+name: Update formula
+
+# **mokume 側は「出た」と伝えるだけ。** formula を組む知識はこのリポジトリに置く
+# (mokume-metal/mokume#398)。あちらに要るのは dispatch を 1 回投げる token だけで、
+# Homebrew の作法をあちらの release.yml に持ち込まずに済む。
+#
+# workflow_dispatch は伝令が届かなかったときの手動の入口 (token の期限切れなど)。
+#
+# **pull_request でも同じものを走らせる。** テンプレートや組み立てを変えた PR は、
+# 出来上がった formula が実際に入って動くところまでを見ないと通せない — 見る内容は
+# 更新時と同じなので、検査を別のワークフローに分けず引き金だけ足す。PR では
+# commit の段だけを飛ばす。
+on:
+  repository_dispatch:
+    types: [mokume-released]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "追随するタグ (省くと最新のリリース)"
+        required: false
+        type: string
+
+permissions:
+  contents: write # 自分のリポジトリの formula を commit する
+
+concurrency:
+  group: update-formula
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: formula を追随させる
+        id: update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.client_payload.version || inputs.tag }}
+        run: bash scripts/update-formula.sh "$TAG"
+
+      # **利用者と同じ経路で入れる。** Homebrew は tap の外にある formula ファイルを
+      # 受け付けない (`brew install ./Formula/mokume.rb` は「formulae to be in a tap」
+      # で弾かれる) ので、checkout を Taps の下へ貼ってから名前で入れる。結果として
+      # 検査するコマンドが README の案内そのものになる
+      - name: 入れて試す
+        run: |
+          if [ ! -f Formula/mokume.rb ]; then
+            echo "formula がまだ無い (追随できるリリースが出ていない)"
+            exit 0
+          fi
+          tap="$(brew --repository)/Library/Taps/mokume-metal/homebrew-tap"
+          mkdir -p "$(dirname "$tap")"
+          ln -sfn "$PWD" "$tap"
+          brew install --formula mokume-metal/tap/mokume
+          brew test mokume-metal/tap/mokume
+
+      - name: 変わっていたら commit する
+        if: github.event_name != 'pull_request'
+        env:
+          TAG: ${{ steps.update.outputs.tag }}
+        run: |
+          if git diff --quiet -- Formula; then
+            echo "変わっていない"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula
+          git commit -m "chore(formula): mokume を $TAG に上げる"
+          git push

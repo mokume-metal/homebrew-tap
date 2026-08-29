@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 mokume-metal
+# SPDX-License-Identifier: MIT
+
+# **この形は scripts/formula.rb.template が正典。**
+# Formula/mokume.rb は scripts/update-formula.sh が組み立てた写しなので、
+# 手で編集しても次の更新で上書きされる。直すならこちらを直す。
+class Mokume < Formula
+  desc "Creative coding environment for Swift and Metal"
+  homepage "https://github.com/mokume-metal/mokume"
+  url "{{URL}}"
+  version "{{VERSION}}"
+  sha256 "{{SHA256}}"
+  license "MIT"
+
+  # ライブラリが macOS 26 を最低要件にしているので、道具も同じところまでしか降りない
+  depends_on macos: :tahoe
+  depends_on arch: :arm64
+
+  def install
+    # **2 つで 1 組。** 道具はひな形を実行ファイルの隣から読む (Bundle.module) ので、
+    # bin へ直に置くと bundle が離れて `mokume new` がひな形を見失う。libexec に
+    # 並べて置き、bin には exec するだけの薄い口を書く
+    libexec.install "mokume", "mokume_MokumeCLI.bundle"
+    bin.write_exec_script libexec/"mokume"
+  end
+
+  test do
+    assert_match "使い方", shell_output("#{bin}/mokume help")
+
+    # ひな形が実行ファイルの隣から読めていることまで見る (install の「2 つで 1 組」)。
+    # 案内文だけでは bundle が離れていても通ってしまう
+    system bin/"mokume", "new", "probe"
+    assert_predicate testpath/"probe/Package.swift", :exist?
+  end
+end
