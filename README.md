@@ -38,9 +38,14 @@ formula は `url` + `sha256` を固定で持つので版ごとに中身が変わ
 `mokume-macos-arm64.tar.gz` そのもの。同じタグから 2 通りの実行ファイルが出る状態を
 作らないため。
 
-**更新は mokume 側からの伝令で始まる。** あちらのリリースが `repository_dispatch`
-(`mokume-released`) を投げ、`Update formula` ワークフローが追随して入れて試してから
-commit する。伝令が届かなかったときは Actions から手で起こせる。
+**更新はこちらから見に行く。** `Update formula` ワークフローが日次 (01:00 UTC) で
+mokume の最新リリースを見て、追随して入れて試してから commit する。mokume の定期
+リリースは月曜 00:00 UTC なので、その 1 時間後に反映される。
+
+**鍵は 1 本も要らない。** あちらから伝令を投げてもらう形も試したが、それには mokume 側へ
+このリポジトリを書ける token を常設することになり、期限が切れれば黙って止まる
+([mokume#410](https://github.com/mokume-metal/mokume/issues/410))。臨時に出た版を待たずに
+取り込みたいときは Actions から手で起こせる。
 
 ## 作業の進め方
 

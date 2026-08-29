@@ -3,19 +3,22 @@
 
 name: Update formula
 
-# **mokume 側は「出た」と伝えるだけ。** formula を組む知識はこのリポジトリに置く
-# (mokume-metal/mokume#398)。あちらに要るのは dispatch を 1 回投げる token だけで、
-# Homebrew の作法をあちらの release.yml に持ち込まずに済む。
+# **こちらから見に行く。** mokume に「出た」と伝えてもらう形 (repository_dispatch) も
+# 試したが、それには mokume 側へこのリポジトリを書ける token を常設することになり、
+# fine-grained PAT は最長 366 日で切れる。年 1 度の鍵の入れ替えは「出荷を人手の儀式に
+# しない」(mokume の ADR-0001 原則 6) に反し、しかも切れたときに定期リリースの片隅で
+# 黙って赤くなる。見に行く形なら鍵が 1 本も要らない (mokume-metal/mokume#410)。
 #
-# workflow_dispatch は伝令が届かなかったときの手動の入口 (token の期限切れなど)。
+# **01:00 UTC を選ぶ理由。** mokume の定期リリースは月曜 00:00 UTC なので、その 1 時間後に
+# 拾える。release:now で臨時に出た版は最長 24 時間待ちになるので、急ぐときは手で起こす。
 #
 # **pull_request でも同じものを走らせる。** テンプレートや組み立てを変えた PR は、
 # 出来上がった formula が実際に入って動くところまでを見ないと通せない — 見る内容は
 # 更新時と同じなので、検査を別のワークフローに分けず引き金だけ足す。PR では
 # commit の段だけを飛ばす。
 on:
-  repository_dispatch:
-    types: [mokume-released]
+  schedule:
+    - cron: "0 1 * * *"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -41,7 +44,7 @@ jobs:
         id: update
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.client_payload.version || inputs.tag }}
+          TAG: ${{ inputs.tag }}
         run: bash scripts/update-formula.sh "$TAG"
 
       # **利用者と同じ経路で入れる。** Homebrew は tap の外にある formula ファイルを
