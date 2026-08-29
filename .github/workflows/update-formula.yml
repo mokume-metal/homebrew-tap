@@ -63,15 +63,16 @@ jobs:
           brew install --formula mokume-metal/tap/mokume
           brew test mokume-metal/tap/mokume
 
+      # **変わったかは追随の段が決める。** ここで `git diff` に判定をやり直させると、
+      # formula がまだ 1 度も commit されていない初回に `Formula/mokume.rb` が未追跡の
+      # ままで、書いた直後でも「差分なし」と読まれる — formula の初回作成だけが必ず
+      # 失敗し、しかも run は緑になる (#2)。決めた側の出力をそのまま使えば、初回も
+      # 2 回目以降も同じ 1 つの判定で足りる
       - name: 変わっていたら commit する
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.update.outputs.changed == 'true'
         env:
           TAG: ${{ steps.update.outputs.tag }}
         run: |
-          if git diff --quiet -- Formula; then
-            echo "変わっていない"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Formula
