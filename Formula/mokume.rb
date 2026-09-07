@@ -7,9 +7,9 @@
 class Mokume < Formula
   desc "Creative coding environment for Swift and Metal"
   homepage "https://github.com/mokume-metal/mokume"
-  url "https://github.com/mokume-metal/mokume/releases/download/v0.6.0/mokume-macos-arm64.tar.gz"
-  version "0.6.0"
-  sha256 "dc1bf9e76aeffbf4298b843088d12870d5adb55dbb92172240ee0deeaf109365"
+  url "https://github.com/mokume-metal/mokume/releases/download/v0.7.1/mokume-macos-arm64.tar.gz"
+  version "0.7.1"
+  sha256 "f296e68fddcda260a4ecb237458ae5fe970d59c459af08e5a3348b83babaf28a"
   license "MIT"
 
   # ライブラリが macOS 26 を最低要件にしているので、道具も同じところまでしか降りない
@@ -17,19 +17,30 @@ class Mokume < Formula
   depends_on arch: :arm64
 
   def install
-    # **2 つで 1 組。** 道具はひな形を実行ファイルの隣から読む (Bundle.module) ので、
-    # bin へ直に置くと bundle が離れて `mokume new` がひな形を見失う。libexec に
-    # 並べて置き、bin には exec するだけの薄い口を書く
-    libexec.install "mokume", "mokume_MokumeCLI.bundle"
+    # 道具は資源の束を実行ファイルの隣から探す (Bundle.module) ので、bin へ直に置くと
+    # 束が離れて `mokume new` はひな形を、`mokume watch` はシェーダの原文を見失う。
+    # libexec に並べて置き、bin には exec するだけの薄い口を書く
+    #
+    # **束を名前で挙げない。** かつてここは mokume_MokumeCLI.bundle だけを挙げていて、
+    # 資産に MokumeCore の束が載っても置かれないままになる形だった
+    # (mokume-metal/mokume#1054)。資産の中身を決めるのは本体の cli-dist なので、
+    # ここは受け取ったものを全部置く — 資源が増えても formula を触らずに追随する
+    libexec.install Dir["*"]
     bin.write_exec_script libexec/"mokume"
   end
 
   test do
     assert_match "使い方", shell_output("#{bin}/mokume help")
 
-    # ひな形が実行ファイルの隣から読めていることまで見る (install の「2 つで 1 組」)。
-    # 案内文だけでは bundle が離れていても通ってしまう
+    # ひな形が実行ファイルの隣から読めていることまで見る。案内文だけでは束が離れて
+    # いても通ってしまう
     system bin/"mokume", "new", "probe"
     assert_predicate testpath/"probe/Package.swift", :exist?
+
+    # **描く道の資源も読めていることを見る。** 上の 2 つは GPU も Metal のシェーダも
+    # 要らないので、シェーダの束が欠けたままでも緑になる — v0.5.0 から 3 版にわたって
+    # 欠けていたのを 1 度も捕まえられなかった (mokume-metal/mokume#1054)。doctor は
+    # 読めるかと在処を名乗り、GPU を要さないのでこの runner でも通る
+    assert_match "同梱の資源: 読める", shell_output("#{bin}/mokume doctor")
   end
 end
