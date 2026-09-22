@@ -29,6 +29,7 @@ on:
 
 permissions:
   contents: write # 自分のリポジトリの formula を commit する
+  issues: write # 追随が止まったら起票し、戻ったら畳む (#8)
 
 concurrency:
   group: update-formula
@@ -78,3 +79,23 @@ jobs:
           git add Formula
           git commit -m "chore(formula): mokume を $TAG に上げる"
           git push
+
+      # **止まったことを Issue で名乗り、戻ったら畳む** (#8)。上流の英語化に検査が
+      # 追随できず 9 日赤のまま出荷が止まったが、既に配ってある formula は壊れないので
+      # 誰も困らず、気付く契機が人の巡回しかなかった (#7)。
+      #
+      # **commit の段より後に置く。** push が弾かれた回も「出荷が止まった」に数えるため。
+      #
+      # **1 段で両方をやる。** failure() と success() に割ると、排他のはずの条件が
+      # 後から食い違っても誰も気付かない。状態から動作への対応はスクリプトが持つ
+      # (cancelled は何もしない)。
+      #
+      # **PR では走らせない。** 手で起こした回 (workflow_dispatch) は走るが、
+      # スクリプトが素振りに切り替えて起票しない — tag を指定して試せる口なので、
+      # 古い tag の回に起票すると遅れの数え方が嘘になる
+      - name: 追随の状態を発信する
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: bash scripts/report-stall.sh
