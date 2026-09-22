@@ -7,9 +7,9 @@
 class Mokume < Formula
   desc "Creative coding environment for Swift and Metal"
   homepage "https://github.com/mokume-metal/mokume"
-  url "https://github.com/mokume-metal/mokume/releases/download/v0.7.1/mokume-macos-arm64.tar.gz"
-  version "0.7.1"
-  sha256 "f296e68fddcda260a4ecb237458ae5fe970d59c459af08e5a3348b83babaf28a"
+  url "https://github.com/mokume-metal/mokume/releases/download/v0.9.0/mokume-macos-arm64.tar.gz"
+  version "0.9.0"
+  sha256 "b50d28aafe4e4476421f073cc311eed942a00bd15954b655fe585baadeed91c3"
   license "MIT"
 
   # ライブラリが macOS 26 を最低要件にしているので、道具も同じところまでしか降りない
@@ -29,8 +29,13 @@ class Mokume < Formula
     bin.write_exec_script libexec/"mokume"
   end
 
+  # **見るのは道具が話す言葉。** ここで突き合わせる文言は mokume の表示そのものなので、
+  # あちらが言葉を変えればここも変える。v0.8.0 で help と doctor が日本語から英語へ
+  # 移り (mokume-metal/mokume の ADR-0038「道具の表示は英語」)、日本語のまま置いていた
+  # この 2 つが落ちて追随が 9 日止まった。移行は面ごとに進むので、次に別の面を見るときも
+  # 「その版で実際に出る文字列」を確かめてから書く
   test do
-    assert_match "使い方", shell_output("#{bin}/mokume help")
+    assert_match "Usage: mokume", shell_output("#{bin}/mokume help")
 
     # ひな形が実行ファイルの隣から読めていることまで見る。案内文だけでは束が離れて
     # いても通ってしまう
@@ -41,6 +46,6 @@ class Mokume < Formula
     # 要らないので、シェーダの束が欠けたままでも緑になる — v0.5.0 から 3 版にわたって
     # 欠けていたのを 1 度も捕まえられなかった (mokume-metal/mokume#1054)。doctor は
     # 読めるかと在処を名乗り、GPU を要さないのでこの runner でも通る
-    assert_match "同梱の資源: 読める", shell_output("#{bin}/mokume doctor")
+    assert_match "Bundled resources: readable", shell_output("#{bin}/mokume doctor")
   end
 end
