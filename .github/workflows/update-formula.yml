@@ -80,16 +80,41 @@ jobs:
       # ままで、書いた直後でも「差分なし」と読まれる — formula の初回作成だけが必ず
       # 失敗し、しかも run は緑になる (#2)。決めた側の出力をそのまま使えば、初回も
       # 2 回目以降も同じ 1 つの判定で足りる
+      #
+      # **git push でなく API で commit する。** このリポジトリはルールセット
+      # `signed-commits` で全ブランチに署名を求めており、runner で `git commit` した
+      # bot のコミットは unsigned なので弾かれる。GITHUB_TOKEN で createCommitOnBranch に
+      # 作らせたコミットは GitHub が署名する — runner に署名鍵を置かずに済む。
+      # expectedHeadOid は checkout した HEAD で、その間に main が進んでいれば弾かれる。
+      # これは push の non-fast-forward と同じ振る舞いで、次の回がやり直す
+      #
+      # **commit の後に HEAD を出した版へ進める。** 後段の report-stall.sh は、出している版を
+      # HEAD から読む。API で作ったコミットは手元に無いので、取りに行かないと古い版を名乗る
       - name: 変わっていたら commit する
         if: github.event_name != 'pull_request' && steps.update.outputs.changed == 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.update.outputs.tag }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula
-          git commit -m "chore(formula): mokume を $TAG に上げる"
-          git push
+          jq -n \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg branch "$BRANCH" \
+            --arg head "$(git rev-parse HEAD)" \
+            --arg headline "chore(formula): mokume を $TAG に上げる" \
+            --arg contents "$(base64 < Formula/mokume.rb | tr -d '\n')" \
+            '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid url } } }",
+              variables: { input: {
+                branch: { repositoryNameWithOwner: $repo, branchName: $branch },
+                expectedHeadOid: $head,
+                message: { headline: $headline },
+                fileChanges: { additions: [ { path: "Formula/mokume.rb", contents: $contents } ] }
+              } }
+            }' |
+            gh api graphql --input - --jq '.data.createCommitOnBranch.commit.url'
+          git fetch --depth=1 origin "$BRANCH"
+          git reset -q --hard FETCH_HEAD
 
       # **止まったことを Issue で名乗り、戻ったら畳む** (#8)。上流の英語化に検査が
       # 追随できず 9 日赤のまま出荷が止まったが、既に配ってある formula は壊れないので
