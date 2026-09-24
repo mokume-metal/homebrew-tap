@@ -9,8 +9,12 @@ name: Update formula
 # しない」(mokume の ADR-0001 原則 6) に反し、しかも切れたときに定期リリースの片隅で
 # 黙って赤くなる。見に行く形なら鍵が 1 本も要らない (mokume-metal/mokume#410)。
 #
-# **01:00 UTC を選ぶ理由。** mokume の定期リリースは月曜 00:00 UTC なので、その 1 時間後に
-# 拾える。release:now で臨時に出た版は最長 24 時間待ちになるので、急ぐときは手で起こす。
+# **4 時間ごとに見に行く。時刻を 1 点に合わせない。** mokume の定期リリースは日次になった
+# (mokume#1289) が、あちらの予定時刻も GitHub の混雑で数時間ずれて着く。日に 1 度の時刻を
+# 合わせにいくと、こちらが先に走った日は丸 1 日遅れる — 実際 01:00 UTC の日次で v0.10.0 と
+# v0.11.0 を続けて取り逃した。回数を増やせば、どちらの到着がずれても遅れは 4 時間ほどで済む。
+# release:now で臨時に出た版も同じ間隔で拾える。それでも急ぐときは手で起こす。
+# 分を 0 から外すのは、毎時丁度が最も混む枠だから (mokume#1290 と同じ理由)。
 #
 # **pull_request でも同じものを走らせる。** テンプレートや組み立てを変えた PR は、
 # 出来上がった formula が実際に入って動くところまでを見ないと通せない — 見る内容は
@@ -18,7 +22,7 @@ name: Update formula
 # commit の段だけを飛ばす。
 on:
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "47 */4 * * *"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -52,7 +56,14 @@ jobs:
       # 受け付けない (`brew install ./Formula/mokume.rb` は「formulae to be in a tap」
       # で弾かれる) ので、checkout を Taps の下へ貼ってから名前で入れる。結果として
       # 検査するコマンドが README の案内そのものになる
+      #
+      # **定期実行では、変わった回だけ試す。** 4 時間ごとに回すと大半の回は版が変わらず、
+      # 同じ formula の brew install を日に何度も繰り返すだけになる。飛ばしても止まった
+      # 追随を緑に見せる経路はない — 試して落ちた版は commit されないので、次の回も
+      # HEAD との差分として「変わった」と判定されて試し直される。PR と手で起こした回は
+      # 試すこと自体が目的なので、変わっていなくても試す
       - name: 入れて試す
+        if: github.event_name != 'schedule' || steps.update.outputs.changed == 'true'
         run: |
           if [ ! -f Formula/mokume.rb ]; then
             echo "formula がまだ無い (追随できるリリースが出ていない)"
