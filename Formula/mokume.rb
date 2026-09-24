@@ -7,9 +7,9 @@
 class Mokume < Formula
   desc "Creative coding environment for Swift and Metal"
   homepage "https://github.com/mokume-metal/mokume"
-  url "https://github.com/mokume-metal/mokume/releases/download/v0.11.0/mokume-macos-arm64.tar.gz"
-  version "0.11.0"
-  sha256 "4d29aa6d0d2ddd7b621f8e024c3c57789eeffbbbdf12f5149746544444ec68e7"
+  url "https://github.com/mokume-metal/mokume/releases/download/v0.11.1/mokume-macos-arm64.tar.gz"
+  version "0.11.1"
+  sha256 "44be51b2e003881b7b3b95db7f67335ca773bb6db6186054ff69be4c6419b247"
   license "MIT"
 
   # ライブラリが macOS 26 を最低要件にしているので、道具も同じところまでしか降りない
