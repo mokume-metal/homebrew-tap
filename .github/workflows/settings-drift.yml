@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 mokume-metal
+# SPDX-License-Identifier: MIT
+
+name: Settings drift
+
+# リポジトリ設定とルールセットが .github/ の定義どおりかを照合する (#11)。
+# main が無保護で auto-merge も不許可のあいだ、`gh pr merge --auto` は CI を待たずに
+# 即マージしていた — 守りが外れても赤にならない類なので、こちらから見に行く。
+#
+#   schedule … 管理画面から直接変えられたずれ。いつ起きるか分からないので日次で見る。
+#              ずれていれば Issue を立て、戻れば畳む
+#   push     … 定義を変える PR を merge したのに apply-settings.sh がまだ、という適用忘れ。
+#              起票はせず run の赤で催促する (判断は report-settings-drift.sh が持つ)
+#
+# **bypass_actors は照合しない。** ruleset を書ける認証にしか返らず、それを CI に置くと
+# 「守りを外せる鍵」を常設することになる。手元で `bash scripts/check-settings.sh` を
+# 引数なしで打てば全部を照合する。
+on:
+  schedule:
+    # 毎時 0 分は混むので外す (update-formula.yml と同じ理由)
+    - cron: "23 2 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/repo-settings.json"
+      - ".github/rulesets/**"
+      - "scripts/check-settings.sh"
+      - "scripts/settings-lib.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 定義と実設定を照合する
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          bash scripts/check-settings.sh --without-bypass-actors 2>&1 | tee drift.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: ずれを発信する
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.check.outputs.status }}
+        run: bash scripts/report-settings-drift.sh drift.log
+
+      # 起票の後に落とす。履歴にも赤を残し、いつから直っているかを run から読めるように
+      - name: 照合の結果
+        env:
+          STATUS: ${{ steps.check.outputs.status }}
+        run: |
+          if [ "$STATUS" != 0 ]; then
+            echo "ずれを検出した (差分は上のログ)" >&2
+            exit 1
+          fi

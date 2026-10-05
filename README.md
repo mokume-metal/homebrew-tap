@@ -47,6 +47,16 @@ mokume の定期リリースは日次で、出る時刻は GitHub の混雑で�
 ワークフローの commit も runner からは push せず、GitHub の API に作らせて GitHub の
 署名を載せている (runner に署名鍵を置かないため)。
 
+**main は検査が緑になるまで入らない。** ルールセット `main-protection` が main に必須
+チェック `update` (formula を入れて試す検査) を求める。PR は `gh pr merge --squash --auto`
+で待ち行列に載せれば、緑になった時点で入る。ワークフローの commit も抜け道は使わず、
+使い捨てのブランチへ commit → 入れて試した印 `update` を付ける → main を fast-forward、
+の順で同じ条件を通る (GitHub Actions はルールセットの例外に入れられないため。#11)。
+
+**リポジトリ設定の正本は `.github/` の定義。** `.github/repo-settings.json` と
+`.github/rulesets/` を変えたら、merge 後に `bash scripts/apply-settings.sh` で書き込む。
+`Settings drift` ワークフローが日次で照合し、管理画面から変わっていれば Issue が立つ。
+
 **止まったらここに Issue が立つ。** 追随が落ちても、既に配ってある formula は壊れないので
 利用者からは見えない。放っておくと出荷だけが静かに止まるので、定期実行が落ちた日に
 「いつから止まっていて、上流から何版ぶん遅れているか」を書いた Issue が自動で立ち、
