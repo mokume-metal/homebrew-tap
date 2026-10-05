@@ -43,10 +43,31 @@ compare() {
 }
 
 # --- リポジトリ設定 ---
-gh api "repos/$REPO" >"$work/repo.json"
+# **REST でなく GraphQL から読む。** REST の GET /repos はマージ方式などの鍵を
+# CI の GITHUB_TOKEN には返さず (null になる)、定義が合っていても毎回「ずれた」と
+# 名乗っていた (#11 の merge 直後の run で実測)。GraphQL は同じ値を読み取り権限で返す。
+# 定義は書き込む側 (apply-settings.sh の PATCH) に合わせて REST の名前で持つので、ここで写す
+gh api graphql \
+  -f query='query($o: String!, $n: String!) { repository(owner: $o, name: $n) {
+    autoMergeAllowed deleteBranchOnMerge mergeCommitAllowed rebaseMergeAllowed squashMergeAllowed } }' \
+  -f o="${REPO%%/*}" -f n="${REPO#*/}" \
+  --jq '.data.repository | {
+    allow_auto_merge: .autoMergeAllowed,
+    delete_branch_on_merge: .deleteBranchOnMerge,
+    allow_merge_commit: .mergeCommitAllowed,
+    allow_rebase_merge: .rebaseMergeAllowed,
+    allow_squash_merge: .squashMergeAllowed }' >"$work/repo.json"
 jq -S . "$SETTINGS_DEF" >"$work/repo.def"
 jq -S --slurpfile d "$SETTINGS_DEF" "$PROJECT_JQ proj(\$d[0])" "$work/repo.json" >"$work/repo.live"
-compare "repo-settings" "$work/repo.def" "$work/repo.live"
+# 読めない鍵は「ずれ」と区別して名乗る。null を差分に出すと、設定が外れたのか
+# 照合が読めていないのかが見分けられない
+unreadable="$(jq -r 'to_entries[] | select(.value == null) | .key' "$work/repo.live")"
+if [ -n "$unreadable" ]; then
+  echo "NG: repo-settings の次の鍵を読めない (定義に足した鍵は、上の GraphQL にも足す): $(echo "$unreadable" | tr '\n' ' ')" >&2
+  ng=1
+else
+  compare "repo-settings" "$work/repo.def" "$work/repo.live"
+fi
 
 # --- ルールセット ---
 # 定義の側から引く。定義に無い ruleset が実設定にあれば、それも外れとして名乗る
