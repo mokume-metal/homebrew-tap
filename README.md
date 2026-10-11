@@ -12,7 +12,8 @@ SPDX-License-Identifier: MIT
 brew install mokume-metal/tap/mokume
 ```
 
-macOS 26 (Tahoe) 以上・Apple Silicon 専用。スケッチを作り直すのに Xcode 26 が要る。
+macOS 26 (Tahoe) 以上・Apple Silicon 専用。スケッチのビルドには Command Line Tools (26 以降) を
+使い、Xcode は要らない (Command Line Tools は Homebrew を入れるときに一緒に入る)。
 
 ```bash
 mokume new my-sketch   # そのまま動くスケッチ一式を作る
